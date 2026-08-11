@@ -28,6 +28,26 @@
 
   var state = { product: 'bottle', qty: 50 };
 
+  try {
+    var saved = window.localStorage.getItem('pg-landing-state');
+    if (saved) {
+      var s = JSON.parse(saved);
+      if (PRODUCTS[s.product]) state.product = s.product;
+      if (QUANTITIES.indexOf(s.qty) !== -1) state.qty = s.qty;
+    }
+  } catch (e) { /* ignore */ }
+
+  function persist() {
+    try { window.localStorage.setItem('pg-landing-state', JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  window.__track = function (name, data) {
+    var payload = { event: name };
+    if (data) { for (var k in data) { payload[k] = data[k]; } }
+    (window.__trackEvents = window.__trackEvents || []).push(payload);
+    if (typeof window.dataLayer !== 'undefined') { window.dataLayer.push(payload); }
+  };
+
   var calcProductsEl = document.getElementById('calc-products');
   var calcQtyEl = document.getElementById('calc-qty');
   var calcLadderEl = document.getElementById('calc-ladder');
@@ -50,7 +70,9 @@
       btn.addEventListener('click', function () {
         state.product = btn.dataset.product;
         state.qty = 50;
+        persist();
         renderAll();
+        __track('product_select', { product: state.product });
       });
     });
   }
@@ -66,7 +88,9 @@
     calcQtyEl.querySelectorAll('[data-qty]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         state.qty = parseInt(btn.dataset.qty, 10);
+        persist();
         renderAll();
+        __track('qty_select', { product: state.product, qty: state.qty });
       });
     });
   }
@@ -93,12 +117,14 @@
         '<span class="ladder-qty">' + q + '</span>' + save +
         '</button>';
     }).join('');
-    calcLadderEl.innerHTML = '<p class="ladder-title">Цената на брой намалява с количеството</p>' +
+    calcLadderEl.innerHTML = '<p class="ladder-title">Как цената на брой намалява с количеството</p>' +
       '<div class="ladder-bars">' + bars + '</div>';
     calcLadderEl.querySelectorAll('[data-qty]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         state.qty = parseInt(btn.dataset.qty, 10);
+        persist();
         renderAll();
+        __track('qty_select', { product: state.product, qty: state.qty });
       });
     });
   }
@@ -112,10 +138,11 @@
         '<div class="calc-offer">' +
         '<h4>Индивидуална оферта</h4>' +
         '<p>За ' + p.name + ' при ' + state.qty + ' броя няма публикувана цена. Изпратете заявка и ще получите персонална оферта.</p>' +
-        '<button type="button" class="btn btn-gold" id="calcOfferBtn">Получавам оферта</button>' +
+        '<button type="button" class="btn btn-gold" id="calcOfferBtn" data-track="cta_calc_offer">Получавам оферта</button>' +
         '</div>';
       document.getElementById('calcOfferBtn').addEventListener('click', function () {
         prefillAndGo(state.product, state.qty);
+        __track('cta_calc_offer', { product: state.product, qty: state.qty });
       });
       return;
     }
@@ -132,14 +159,15 @@
       '<div class="calc-result__qty">' + state.qty + ' бр.</div>' +
       '</div>' +
       '<div class="calc-row"><span>Цена за брой</span><strong>' + money(price, state.product) + '</strong></div>' +
-      '<div class="calc-row"><span>Обща цена без ДДС</span><strong>' + money(total, state.product) + '</strong></div>' +
+      '<div class="calc-row"><span>Обща стойност без ДДС</span><strong>' + money(total, state.product) + '</strong></div>' +
       '<div class="calc-row"><span>ДДС (20%)</span><strong>' + money(vat, state.product) + '</strong></div>' +
       '<div class="calc-row is-total"><span>Цена с ДДС</span><strong>' + money(withVat, state.product) + '</strong></div>' +
-      (save > 0 ? '<div class="calc-save-row">Спестявате <strong>' + money(save, state.product) + '</strong> спрямо минималния тираж от 50 броя.</div>' : '') +
-      '<div class="calc-cta"><button type="button" class="btn btn-gold" id="calcCtaBtn">Получавам оферта</button></div>';
+      (save > 0 ? '<div class="calc-save-row">По-ниска цена при по-голям тираж: спестявате <strong>' + money(save, state.product) + '</strong> спрямо 50 броя.</div>' : '') +
+      '<div class="calc-cta"><button type="button" class="btn btn-gold" id="calcCtaBtn" data-track="cta_calc_offer">Искам тази оферта</button></div>';
 
     document.getElementById('calcCtaBtn').addEventListener('click', function () {
       prefillAndGo(state.product, state.qty);
+      __track('cta_calc_offer', { product: state.product, qty: state.qty });
     });
   }
 
@@ -153,22 +181,31 @@
 
   document.querySelectorAll('[data-calc]').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      var card = btn.closest('.product-card');
+      var sel = card ? card.querySelector('.qty-select') : null;
+      var qty = sel ? parseInt(sel.value, 10) : 50;
       state.product = btn.dataset.calc;
-      state.qty = 50;
+      state.qty = qty;
+      persist();
       renderAll();
+      __track('cta_product_prices', { product: state.product, qty: state.qty });
       document.getElementById('calculator').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
   document.querySelectorAll('[data-offer]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      prefillAndGo(btn.dataset.offer, 50);
+      var card = btn.closest('.product-card');
+      var sel = card ? card.querySelector('.qty-select') : null;
+      var qty = sel ? parseInt(sel.value, 10) : 50;
+      prefillAndGo(btn.dataset.offer, qty);
+      __track('cta_product_offer', { product: btn.dataset.offer, qty: qty });
     });
   });
 
   document.querySelectorAll('.product-card').forEach(function (card) {
     card.addEventListener('click', function (e) {
-      if (e.target.closest('button')) return;
+      if (e.target.closest('button') || e.target.closest('select')) return;
       var calcBtn = card.querySelector('[data-calc]');
       if (calcBtn) { calcBtn.click(); return; }
       var offerBtn = card.querySelector('[data-offer]');
@@ -176,17 +213,22 @@
     });
   });
 
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-track]');
+    if (el && el.dataset.track) {
+      __track(el.dataset.track, { product: state.product, qty: state.qty });
+    }
+  });
+
   function prefillAndGo(productKey, qty) {
     var p = PRODUCTS[productKey];
-    document.querySelectorAll('input[name="interest"]').forEach(function (cb) {
-      cb.checked = cb.value === p.group;
-    });
+    var prodSel = document.getElementById('fProduct');
+    if (prodSel) prodSel.value = productKey;
     var qtySel = document.getElementById('fQuantity');
-    qtySel.value = qty === 1000 ? '1000' : String(qty);
-    ['fName', 'fCompany', 'fPhone', 'fEmail', 'fQuantity'].forEach(function (id) {
+    if (qtySel) qtySel.value = qty === 1000 ? '1000' : String(qty);
+    ['fName', 'fCompany', 'fPhone', 'fEmail', 'fProduct', 'fQuantity', 'fDeadline'].forEach(function (id) {
       setError('err-' + id, '');
     });
-    setError('err-fInterests', '');
     setError('err-fPurpose', '');
     document.getElementById('form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -206,14 +248,14 @@
     if (window.innerWidth >= 1024) { sticky.hidden = true; return; }
     var rect = formSection.getBoundingClientRect();
     var nearForm = rect.top < window.innerHeight * 0.75 && rect.bottom > 0;
-    var scrolled = window.scrollY > window.innerHeight * 0.7;
+    var scrolled = window.scrollY > window.innerHeight * 0.6;
     sticky.hidden = !(scrolled && !nearForm);
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
 
-  var ARIA_FIELDS = ['fName', 'fCompany', 'fPhone', 'fEmail', 'fQuantity', 'fLogo'];
+  var ARIA_FIELDS = ['fName', 'fCompany', 'fPhone', 'fEmail', 'fProduct', 'fQuantity', 'fDeadline', 'fLogo'];
 
   function setError(id, msg) {
     var el = document.getElementById(id);
@@ -227,7 +269,8 @@
     }
     var fieldId = id.replace('err-', '');
     if (ARIA_FIELDS.indexOf(fieldId) !== -1) {
-      document.getElementById(fieldId).setAttribute('aria-invalid', msg ? 'true' : 'false');
+      var field = document.getElementById(fieldId);
+      if (field && field.setAttribute) field.setAttribute('aria-invalid', msg ? 'true' : 'false');
     }
   }
 
@@ -235,33 +278,39 @@
 
   function validate() {
     var firstFocus = null;
+    var invalidFields = [];
+
     var name = document.getElementById('fName').value.trim();
-    if (name.length < 2) { setError('err-fName', 'Моля, въведете име.'); firstFocus = firstFocus || 'fName'; }
+    if (name.length < 2) { setError('err-fName', 'Моля, въведете име.'); firstFocus = firstFocus || 'fName'; invalidFields.push('name'); }
     else { setError('err-fName', ''); }
 
     var company = document.getElementById('fCompany').value.trim();
-    if (company.length < 2) { setError('err-fCompany', 'Моля, въведете фирма.'); firstFocus = firstFocus || 'fCompany'; }
+    if (company.length < 2) { setError('err-fCompany', 'Моля, въведете фирма.'); firstFocus = firstFocus || 'fCompany'; invalidFields.push('company'); }
     else { setError('err-fCompany', ''); }
 
     var phone = document.getElementById('fPhone').value.trim();
-    if (!/^[+0-9 ()\-]{7,20}$/.test(phone)) { setError('err-fPhone', 'Моля, въведете валиден телефон.'); firstFocus = firstFocus || 'fPhone'; }
+    if (!/^[+0-9 ()\-]{7,20}$/.test(phone)) { setError('err-fPhone', 'Моля, въведете валиден телефон.'); firstFocus = firstFocus || 'fPhone'; invalidFields.push('phone'); }
     else { setError('err-fPhone', ''); }
 
     var email = document.getElementById('fEmail').value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError('err-fEmail', 'Моля, въведете валиден email.'); firstFocus = firstFocus || 'fEmail'; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError('err-fEmail', 'Моля, въведете валиден email.'); firstFocus = firstFocus || 'fEmail'; invalidFields.push('email'); }
     else { setError('err-fEmail', ''); }
 
-    var interest = document.querySelector('input[name="interest"]:checked');
-    if (!interest) { setError('err-fInterests', 'Изберете поне една категория.'); firstFocus = firstFocus || 'fInterests'; }
-    else { setError('err-fInterests', ''); }
+    var product = document.getElementById('fProduct').value;
+    if (!product) { setError('err-fProduct', 'Изберете продукт.'); firstFocus = firstFocus || 'fProduct'; invalidFields.push('product'); }
+    else { setError('err-fProduct', ''); }
 
     var quantity = document.getElementById('fQuantity').value;
-    if (!quantity) { setError('err-fQuantity', 'Изберете количество.'); firstFocus = firstFocus || 'fQuantity'; }
+    if (!quantity) { setError('err-fQuantity', 'Изберете количество.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
     else { setError('err-fQuantity', ''); }
 
     var purpose = document.querySelector('input[name="purpose"]:checked');
-    if (!purpose) { setError('err-fPurpose', 'Изберете поне една опция.'); firstFocus = firstFocus || 'fPurpose'; }
+    if (!purpose) { setError('err-fPurpose', 'Изберете поне една опция.'); firstFocus = firstFocus || 'fPurpose'; invalidFields.push('purpose'); }
     else { setError('err-fPurpose', ''); }
+
+    var deadline = document.getElementById('fDeadline').value;
+    if (!deadline) { setError('err-fDeadline', 'Изберете краен срок.'); firstFocus = firstFocus || 'fDeadline'; invalidFields.push('deadline'); }
+    else { setError('err-fDeadline', ''); }
 
     var file = document.getElementById('fLogo').files[0];
     if (file) {
@@ -269,6 +318,7 @@
       if (allowedExt.indexOf(ext) === -1 || file.size > 10 * 1024 * 1024) {
         setError('err-fLogo', 'Невалиден формат или размер. Приемаме PNG, JPG, SVG, AI, PDF до 10 MB.');
         firstFocus = firstFocus || 'fLogo';
+        invalidFields.push('logo');
       } else {
         setError('err-fLogo', '');
       }
@@ -277,11 +327,9 @@
     }
 
     if (firstFocus) {
+      __track('form_error', { fields: invalidFields });
       var target = document.getElementById(firstFocus);
-      if (target) target.focus({ preventScroll: true });
-      if (firstFocus === 'fInterests') {
-        document.getElementById('fInterests').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      if (target && target.focus) target.focus({ preventScroll: true });
       if (firstFocus === 'fPurpose') {
         document.getElementById('fPurpose').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -307,6 +355,10 @@
     if (el && el.setAttribute) el.setAttribute('aria-describedby', 'err-' + id);
   });
 
+  form.addEventListener('focusin', function () {
+    __track('form_start', {});
+  }, { once: true });
+
   form.addEventListener('input', function (e) {
     if (e.target && e.target.id) setError('err-' + e.target.id, '');
   });
@@ -316,8 +368,7 @@
 
   form.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
     cb.addEventListener('change', function () {
-      var groupErr = cb.name === 'interest' ? 'err-fInterests' : 'err-fPurpose';
-      if (form.querySelector('input[name="' + cb.name + '"]:checked')) setError(groupErr, '');
+      if (cb.name === 'purpose' && form.querySelector('input[name="purpose"]:checked')) setError('err-fPurpose', '');
     });
   });
 
@@ -342,10 +393,21 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Изпращане…';
 
+    var payload = {
+      product: document.getElementById('fProduct').value,
+      quantity: document.getElementById('fQuantity').value,
+      deadline: document.getElementById('fDeadline').value,
+      budget: (document.querySelector('input[name="budget"]:checked') || {}).value || '',
+      purposes: Array.prototype.map.call(form.querySelectorAll('input[name="purpose"]:checked'), function (i) { return i.value; }),
+      priorities: Array.prototype.map.call(form.querySelectorAll('input[name="priority"]:checked'), function (i) { return i.value; })
+    };
+    __track('form_submit', payload);
+
     var done = function () {
       form.hidden = true;
-      document.getElementById('formSuccess').hidden = false;
-      document.getElementById('formSuccess').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var success = document.getElementById('formSuccess');
+      success.hidden = false;
+      success.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
     var fail = function () {
