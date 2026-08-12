@@ -6,7 +6,7 @@
     meyer: { name: 'MEYER тефтер', desc: 'Тефтер', group: 'Тефтери', currency: 'EUR', unit: '€', icon: 'pg-notebook-meyer', prices: { 50: 2.29, 100: 1.95, 250: 1.67, 500: 1.51, 1000: 1.37 } },
     hemingway: { name: 'HEMINGWAY A5', desc: 'Тефтер A5, твърда корица', group: 'Тефтери', currency: 'EUR', unit: '€', icon: 'pg-notebook-hemingway', prices: { 50: 3.15, 100: 2.63, 250: 2.33, 500: 2.15, 1000: 2.01 } },
     notebookPen: { name: 'Тефтер + химикал', desc: 'Комплект тефтер с химикал', group: 'Тефтери', currency: null, unit: '', icon: 'pg-notebook-pen', prices: {} },
-    cup: { name: 'Брандирана чаша', desc: 'Чаша с лого', group: 'Чаши', currency: 'BGN', unit: 'лв.', icon: 'pg-cup', prices: { 50: 15.10, 100: 13.20, 500: 10.10, 1000: 9.40 } },
+    cup: { name: 'Брандирана чаша', desc: 'Цената зависи от модела и количеството', group: 'Чаши', currency: 'BGN', unit: 'лв.', icon: 'pg-cup', prices: { 50: 15.10, 100: 13.20, 500: 10.10, 1000: 9.40 } },
     bag: { name: 'Брандирана торба', desc: 'Торба с печат', group: 'Торби', currency: null, unit: '', icon: 'pg-bag', prices: {} },
     backpack: { name: 'Брандирана раница', desc: 'Раница / бизнес чанта', group: 'Раници', currency: 'BGN', unit: 'лв.', icon: 'pg-backpack', prices: { 50: 42.90 } },
     giftSet: { name: 'Подаръчен комплект', desc: 'Корпоративен подаръчен комплект', group: 'Подаръчен комплект', currency: null, unit: '', icon: 'pg-gift', prices: {} }
@@ -159,9 +159,9 @@
       '<div class="calc-result__qty">' + state.qty + ' бр.</div>' +
       '</div>' +
       '<div class="calc-row"><span>Цена за брой</span><strong>' + money(price, state.product) + '</strong></div>' +
-      '<div class="calc-row"><span>Обща стойност без ДДС</span><strong>' + money(total, state.product) + '</strong></div>' +
+      '<div class="calc-row"><span>Общо без ДДС</span><strong>' + money(total, state.product) + '</strong></div>' +
       '<div class="calc-row"><span>ДДС (20%)</span><strong>' + money(vat, state.product) + '</strong></div>' +
-      '<div class="calc-row is-total"><span>Цена с ДДС</span><strong>' + money(withVat, state.product) + '</strong></div>' +
+      '<div class="calc-row is-total"><span>Общо с ДДС</span><strong>' + money(withVat, state.product) + '</strong></div>' +
       (save > 0 ? '<div class="calc-save-row">По-ниска цена при по-голям тираж: спестявате <strong>' + money(save, state.product) + '</strong> спрямо 50 броя.</div>' : '') +
       '<div class="calc-cta"><button type="button" class="btn btn-gold" id="calcCtaBtn" data-track="cta_calc_offer">Искам тази оферта</button></div>';
 
@@ -176,14 +176,39 @@
     renderQuantity();
     renderLadder();
     renderResult();
+    syncPriceTables();
     updateSticky();
   }
+
+  function syncPriceTables() {
+    document.querySelectorAll('.price-table').forEach(function (table) {
+      var card = table.closest('.product-card');
+      var isCurrent = card && card.dataset.product === state.product;
+      table.querySelectorAll('.price-table__row').forEach(function (row) {
+        var on = isCurrent && parseInt(row.dataset.qty, 10) === state.qty;
+        row.classList.toggle('is-selected', on);
+      });
+    });
+  }
+
+  document.querySelectorAll('.price-table__row').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var card = row.closest('.product-card');
+      if (!card) return;
+      state.product = card.dataset.product;
+      state.qty = parseInt(row.dataset.qty, 10);
+      persist();
+      renderAll();
+      __track('qty_select', { product: state.product, qty: state.qty });
+    });
+  });
 
   document.querySelectorAll('[data-calc]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var card = btn.closest('.product-card');
+      var row = card ? card.querySelector('.price-table__row.is-selected') : null;
       var sel = card ? card.querySelector('.qty-select') : null;
-      var qty = sel ? parseInt(sel.value, 10) : 50;
+      var qty = row ? parseInt(row.dataset.qty, 10) : (sel ? parseInt(sel.value, 10) : 50);
       state.product = btn.dataset.calc;
       state.qty = qty;
       persist();
@@ -200,6 +225,12 @@
       var qty = sel ? parseInt(sel.value, 10) : 50;
       prefillAndGo(btn.dataset.offer, qty);
       __track('cta_product_offer', { product: btn.dataset.offer, qty: qty });
+    });
+  });
+
+  document.querySelectorAll('.qty-select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      __track('qty_select', { product: sel.dataset.qty, qty: parseInt(sel.value, 10) });
     });
   });
 
@@ -220,12 +251,32 @@
     }
   });
 
+  function estimateBudget(productKey, qty) {
+    var p = PRODUCTS[productKey];
+    var price = p.prices[qty];
+    if (price === undefined || p.currency !== 'EUR') return null;
+    var total = price * qty;
+    var ranges = [['до 500 €', 500], ['500–1000 €', 1000], ['1000–2500 €', 2500], ['2500–5000 €', 5000]];
+    for (var i = 0; i < ranges.length; i++) {
+      if (total <= ranges[i][1]) return ranges[i][0];
+    }
+    return '5000+ €';
+  }
+
   function prefillAndGo(productKey, qty) {
     var p = PRODUCTS[productKey];
     var prodSel = document.getElementById('fProduct');
     if (prodSel) prodSel.value = productKey;
     var qtySel = document.getElementById('fQuantity');
     if (qtySel) qtySel.value = qty === 1000 ? '1000' : String(qty);
+    var budgetChecked = document.querySelector('input[name="budget"]:checked');
+    if (!budgetChecked) {
+      var est = estimateBudget(productKey, qty);
+      if (est) {
+        var radio = document.querySelector('input[name="budget"][value="' + est + '"]');
+        if (radio) radio.checked = true;
+      }
+    }
     ['fName', 'fCompany', 'fPhone', 'fEmail', 'fProduct', 'fQuantity', 'fDeadline'].forEach(function (id) {
       setError('err-' + id, '');
     });
@@ -381,6 +432,7 @@
       setError('err-fLogo', '');
       return;
     }
+    __track('logo_upload', { filename: f.name, size: f.size });
     logoHint.textContent = f.name;
   });
 

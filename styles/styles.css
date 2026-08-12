@@ -223,12 +223,22 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
   margin-bottom: 14px;
 }
 
-.hero-pricing-line {
-  font-size: 1.02rem;
+.hero-price-hero {
+  font-size: 1.28rem;
   color: var(--ink);
+  margin-bottom: 2px;
+}
+.hero-price-hero strong {
+  color: var(--green);
+  font-size: 1.55rem;
+  font-weight: 800;
+}
+
+.hero-price-note {
+  color: var(--muted);
+  font-size: 0.95rem;
   margin-bottom: 26px;
 }
-.hero-pricing-line strong { color: var(--green); }
 
 .hero-actions {
   display: flex;
@@ -327,6 +337,11 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
   background: var(--cream);
   outline: 1px solid var(--gold);
 }
+.ladder-row.is-start {
+  background: rgba(198, 161, 91, 0.16);
+  outline: 1px solid var(--gold);
+}
+.ladder-row.is-start strong { color: var(--gold-strong); font-size: 1.12rem; }
 
 .ladder-row-qty { color: var(--muted); font-weight: 600; white-space: nowrap; }
 
@@ -417,6 +432,16 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
 }
 .product-card.is-popular:hover { box-shadow: var(--shadow); }
 
+.product-card--primary {
+  border-color: rgba(198, 161, 91, 0.6);
+}
+.product-card--primary .product-card__media {
+  padding: 28px 24px 16px;
+}
+.product-card--primary .product-img { max-width: 250px; }
+.product-card--primary h3 { font-size: 1.28rem; }
+.product-card--primary .product-card__type { margin-bottom: 10px; }
+
 .product-card__media {
   position: relative;
   background: linear-gradient(160deg, #FBF9F5 0%, #EFECE2 100%);
@@ -442,6 +467,7 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
   text-transform: uppercase;
 }
 .badge-budget { background: #DCE8E1; color: var(--green-deep); }
+.badge-smart { background: #DCE8E1; color: var(--green-deep); }
 .badge-premium { background: var(--ink); color: var(--gold-soft); }
 .badge-teams { background: #E8E3F2; color: #4A3B78; }
 .badge-xmas { background: #F4E3DC; color: #7A3B2A; }
@@ -478,6 +504,57 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
 .price-value { font-size: 1.3rem; font-weight: 800; color: var(--ink); }
 .price-per { color: var(--muted); font-size: 0.88rem; }
 .price-note { display: block; color: var(--muted); font-size: 0.8rem; }
+
+.price-table {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.price-table__head,
+.price-table__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.price-table__head {
+  padding: 0 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.price-table__row {
+  width: 100%;
+  text-align: left;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-family: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.price-table__row span { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
+.price-table__row strong { color: var(--ink); font-size: 0.95rem; }
+.price-table__row:hover { border-color: var(--gold); }
+.price-table__row.is-selected {
+  border-color: var(--green);
+  background: #EEF4F0;
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.price-table__row.is-selected span { color: var(--green-deep); }
+.price-table__row.is-selected strong { color: var(--green); }
+
+.price-table-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
 
 .product-card__qty-label {
   display: block;
