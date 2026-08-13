@@ -14,7 +14,8 @@
 
   var QUANTITIES = [50, 100, 250, 500, 1000];
   var VAT = 0.2;
-  var FORM_ENDPOINT = '';
+  var LEAD_ENDPOINT = (window.__PG_CONFIG__ && window.__PG_CONFIG__.leadEndpoint) || '/api/leads';
+  var REQUEST_TIMEOUT = 15000;
 
   var nf = new Intl.NumberFormat('bg-BG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -39,6 +40,36 @@
 
   function persist() {
     try { window.localStorage.setItem('pg-landing-state', JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  function getUtms() {
+    var key = 'pg-lead-utm';
+    var data = null;
+    try { data = JSON.parse(window.localStorage.getItem(key) || 'null'); } catch (e) { /* ignore */ }
+    if (!data || !data.captured) {
+      data = data || {};
+      var p = new URLSearchParams(window.location.search);
+      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function (k) {
+        var v = p.get(k);
+        if (v) data[k] = v;
+      });
+      data.captured = true;
+      if (!data.first_visit) data.first_visit = new Date().toISOString();
+      try { window.localStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* ignore */ }
+    }
+    return data;
+  }
+
+  function buildEstimate(productKey, qty) {
+    var p = PRODUCTS[productKey];
+    var q = parseInt(String(qty).replace('+', ''), 10) || 0;
+    var price = p && p.prices[q] !== undefined ? p.prices[q] : null;
+    if (price === null || q < 1) {
+      return { unit: null, ex: null, inc: null };
+    }
+    var ex = price * q;
+    var inc = ex * (1 + VAT);
+    return { unit: price, ex: ex, inc: inc };
   }
 
   window.__track = function (name, data) {
@@ -73,6 +104,7 @@
         persist();
         renderAll();
         __track('product_select', { product: state.product });
+        __track('calculator_interaction', { type: 'product', product: state.product });
       });
     });
   }
@@ -91,6 +123,7 @@
         persist();
         renderAll();
         __track('qty_select', { product: state.product, qty: state.qty });
+        __track('calculator_interaction', { type: 'qty', product: state.product, qty: state.qty });
       });
     });
   }
@@ -125,6 +158,7 @@
         persist();
         renderAll();
         __track('qty_select', { product: state.product, qty: state.qty });
+        __track('calculator_interaction', { type: 'qty', product: state.product, qty: state.qty });
       });
     });
   }
@@ -143,6 +177,7 @@
       document.getElementById('calcOfferBtn').addEventListener('click', function () {
         prefillAndGo(state.product, state.qty);
         __track('cta_calc_offer', { product: state.product, qty: state.qty });
+        __track('calculator_cta_click', { product: state.product, qty: state.qty });
       });
       return;
     }
@@ -168,6 +203,7 @@
     document.getElementById('calcCtaBtn').addEventListener('click', function () {
       prefillAndGo(state.product, state.qty);
       __track('cta_calc_offer', { product: state.product, qty: state.qty });
+      __track('calculator_cta_click', { product: state.product, qty: state.qty });
     });
   }
 
@@ -200,6 +236,8 @@
       persist();
       renderAll();
       __track('qty_select', { product: state.product, qty: state.qty });
+      __track('product_select', { product: state.product });
+      __track('calculator_interaction', { type: 'product', product: state.product });
     });
   });
 
@@ -248,6 +286,9 @@
     var el = e.target.closest('[data-track]');
     if (el && el.dataset.track) {
       __track(el.dataset.track, { product: state.product, qty: state.qty });
+      if (el.closest('.hero')) {
+        __track('hero_cta_click', { cta: el.dataset.track });
+      }
     }
   });
 
@@ -325,7 +366,7 @@
     }
   }
 
-  var allowedExt = ['png', 'jpg', 'jpeg', 'svg', 'ai', 'pdf'];
+  var allowedExt = ['png', 'jpg', 'jpeg', 'pdf', 'svg'];
 
   function validate() {
     var firstFocus = null;
@@ -340,19 +381,21 @@
     else { setError('err-fCompany', ''); }
 
     var phone = document.getElementById('fPhone').value.trim();
-    if (!/^[+0-9 ()\-]{7,20}$/.test(phone)) { setError('err-fPhone', 'Моля, въведете валиден телефон.'); firstFocus = firstFocus || 'fPhone'; invalidFields.push('phone'); }
+    if (!/^[+0-9 ()\-]{7,20}$/.test(phone)) { setError('err-fPhone', 'Моля, въведете телефон.'); firstFocus = firstFocus || 'fPhone'; invalidFields.push('phone'); }
     else { setError('err-fPhone', ''); }
 
     var email = document.getElementById('fEmail').value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError('err-fEmail', 'Моля, въведете валиден email.'); firstFocus = firstFocus || 'fEmail'; invalidFields.push('email'); }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError('err-fEmail', 'Моля, въведете валиден email адрес.'); firstFocus = firstFocus || 'fEmail'; invalidFields.push('email'); }
     else { setError('err-fEmail', ''); }
 
     var product = document.getElementById('fProduct').value;
-    if (!product) { setError('err-fProduct', 'Изберете продукт.'); firstFocus = firstFocus || 'fProduct'; invalidFields.push('product'); }
+    if (!product) { setError('err-fProduct', 'Моля, изберете продукт.'); firstFocus = firstFocus || 'fProduct'; invalidFields.push('product'); }
     else { setError('err-fProduct', ''); }
 
     var quantity = document.getElementById('fQuantity').value;
-    if (!quantity) { setError('err-fQuantity', 'Изберете количество.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
+    var qtyNum = parseInt(String(quantity).replace('+', ''), 10) || 0;
+    if (!quantity) { setError('err-fQuantity', 'Моля, изберете количество.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
+    else if (qtyNum < 50) { setError('err-fQuantity', 'Минималното количество е 50 броя.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
     else { setError('err-fQuantity', ''); }
 
     var purpose = document.querySelector('input[name="purpose"]:checked');
@@ -367,7 +410,7 @@
     if (file) {
       var ext = file.name.split('.').pop().toLowerCase();
       if (allowedExt.indexOf(ext) === -1 || file.size > 10 * 1024 * 1024) {
-        setError('err-fLogo', 'Невалиден формат или размер. Приемаме PNG, JPG, SVG, AI, PDF до 10 MB.');
+        setError('err-fLogo', 'Невалиден формат или размер. Приемаме PNG, JPG, PDF, SVG до 10 MB.');
         firstFocus = firstFocus || 'fLogo';
         invalidFields.push('logo');
       } else {
@@ -425,60 +468,132 @@
 
   var logoInput = document.getElementById('fLogo');
   var logoHint = document.getElementById('fLogoHint');
+  var logoRemove = document.getElementById('fLogoRemove');
+
+  function resetLogoUi() {
+    logoInput.value = '';
+    logoHint.textContent = 'Качете логото, за да подготвим визуализация. Максимален размер 10 MB.';
+    logoRemove.hidden = true;
+    setError('err-fLogo', '');
+  }
+
+  logoRemove.addEventListener('click', resetLogoUi);
+
   logoInput.addEventListener('change', function () {
     var f = logoInput.files[0];
-    if (!f) {
-      logoHint.textContent = 'Качете логото, за да подготвим визуализация. Максимален размер 10 MB.';
-      setError('err-fLogo', '');
-      return;
-    }
+    if (!f) { resetLogoUi(); return; }
     __track('logo_upload', { filename: f.name, size: f.size });
-    logoHint.textContent = f.name;
+    logoHint.textContent = 'Файл: ' + f.name + ' (' + Math.round(f.size / 1024) + ' KB)';
+    logoRemove.hidden = false;
   });
+
+  var honeypotInput = document.getElementById('fHoneypot');
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var globalErr = document.getElementById('formGlobalError');
     if (globalErr) { globalErr.textContent = ''; globalErr.classList.remove('is-visible'); }
+
+    if (honeypotInput && honeypotInput.value.trim()) {
+      __track('form_spam_blocked', {});
+      return;
+    }
+
     if (!validate()) return;
+
     var submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Изпращане…';
 
+    var product = document.getElementById('fProduct').value;
+    var quantity = document.getElementById('fQuantity').value;
+    var budget = (document.querySelector('input[name="budget"]:checked') || {}).value || '';
+    var utms = getUtms();
+    var estimate = buildEstimate(product, quantity);
+
     var payload = {
-      product: document.getElementById('fProduct').value,
-      quantity: document.getElementById('fQuantity').value,
+      product: product,
+      quantity: quantity,
+      budget: budget,
       deadline: document.getElementById('fDeadline').value,
-      budget: (document.querySelector('input[name="budget"]:checked') || {}).value || '',
-      purposes: Array.prototype.map.call(form.querySelectorAll('input[name="purpose"]:checked'), function (i) { return i.value; }),
-      priorities: Array.prototype.map.call(form.querySelectorAll('input[name="priority"]:checked'), function (i) { return i.value; })
+      purpose: Array.prototype.map.call(form.querySelectorAll('input[name="purpose"]:checked'), function (i) { return i.value; }),
+      priority: Array.prototype.map.call(form.querySelectorAll('input[name="priority"]:checked'), function (i) { return i.value; }),
+      estimated_unit_price: estimate.unit,
+      estimated_total_ex_vat: estimate.ex,
+      estimated_total_inc_vat: estimate.inc
     };
-    __track('form_submit', payload);
+    __track('form_submit_attempt', payload);
 
     var done = function () {
       form.hidden = true;
       var success = document.getElementById('formSuccess');
       success.hidden = false;
       success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      __track('form_submit_success', {});
     };
 
-    var fail = function () {
+    var fail = function (reason) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Получавам персонална оферта';
-      showGlobalError('Възникна грешка при изпращането. Моля, опитайте отново.');
+      showGlobalError('Възникна проблем при изпращането на запитването. Моля, опитайте отново или се свържете с нас по телефона.');
+      __track('form_submit_error', { reason: reason || 'error' });
     };
 
-    if (FORM_ENDPOINT) {
-      fetch(FORM_ENDPOINT, { method: 'POST', body: new FormData(form) })
-        .then(function (res) {
-          if (!res.ok) throw new Error('bad status');
-          done();
-        })
-        .catch(fail);
-    } else {
-      window.setTimeout(done, 300);
+    var fd = new FormData(form);
+
+    function appendIfValued(key, value) {
+      if (value !== undefined && value !== null && value !== '') fd.append(key, String(value));
     }
+
+    appendIfValued('estimated_unit_price', estimate.unit);
+    appendIfValued('estimated_total_ex_vat', estimate.ex);
+    appendIfValued('estimated_total_inc_vat', estimate.inc);
+    appendIfValued('source', 'printground-landing');
+    appendIfValued('campaign', utms.utm_campaign || '');
+    appendIfValued('utm_source', utms.utm_source || '');
+    appendIfValued('utm_medium', utms.utm_medium || '');
+    appendIfValued('utm_campaign', utms.utm_campaign || '');
+    appendIfValued('utm_content', utms.utm_content || '');
+    appendIfValued('utm_term', utms.utm_term || '');
+    appendIfValued('landing_page_url', window.location.href.split('?')[0]);
+    appendIfValued('referrer', document.referrer);
+    appendIfValued('timestamp', new Date().toISOString());
+
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? window.setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT) : null;
+    var opts = { method: 'POST', body: fd };
+    if (controller) opts.signal = controller.signal;
+
+    fetch(LEAD_ENDPOINT, opts)
+      .then(function (res) {
+        if (timer) window.clearTimeout(timer);
+        if (!res.ok) throw new Error('bad status ' + res.status);
+        return res.json().catch(function () { return {}; });
+      })
+      .then(function () { done(); })
+      .catch(function (err) {
+        if (timer) window.clearTimeout(timer);
+        var reason = err && err.name === 'AbortError' ? 'timeout' : (err && err.message) || 'network';
+        fail(reason);
+      });
   });
+
+  var successReset = document.getElementById('formSuccessReset');
+  if (successReset) {
+    successReset.addEventListener('click', function () {
+      form.reset();
+      resetLogoUi();
+      ['fName', 'fCompany', 'fPhone', 'fEmail', 'fProduct', 'fQuantity', 'fDeadline', 'fLogo'].forEach(function (id) {
+        setError('err-' + id, '');
+      });
+      setError('err-fPurpose', '');
+      var globalErr = document.getElementById('formGlobalError');
+      if (globalErr) { globalErr.textContent = ''; globalErr.classList.remove('is-visible'); }
+      document.getElementById('formSuccess').hidden = true;
+      form.hidden = false;
+      document.getElementById('form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   renderAll();
   updateSticky();

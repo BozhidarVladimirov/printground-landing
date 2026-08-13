@@ -1015,6 +1015,40 @@ input[type="file"] {
 
 .form-hint { font-size: 0.82rem; color: var(--muted); display: block; margin-top: 6px; }
 
+.logo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.logo-row .form-hint { margin-top: 8px; }
+
+.logo-remove {
+  flex: none;
+  margin-top: 6px;
+  background: transparent;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--danger);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.logo-remove:hover { border-color: var(--danger); background: var(--danger-bg); }
+.logo-remove[hidden] { display: none; }
+
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .form-error {
   display: none;
   font-size: 0.82rem;

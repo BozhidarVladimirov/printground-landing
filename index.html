@@ -636,9 +636,12 @@
               <span class="form-error" id="err-fDeadline"></span>
             </div>
             <div class="form-field">
-              <label for="fLogo">Лого (PNG, JPG, SVG, AI, PDF)</label>
-              <input type="file" id="fLogo" name="logo" accept=".png,.jpg,.jpeg,.svg,.ai,.pdf">
-              <span class="form-hint" id="fLogoHint">Качете логото, за да подготвим визуализация. Максимален размер 10 MB.</span>
+              <label for="fLogo">Лого (PNG, JPG, PDF, SVG)</label>
+              <input type="file" id="fLogo" name="logo" accept=".png,.jpg,.jpeg,.pdf,.svg">
+              <div class="logo-row">
+                <span class="form-hint" id="fLogoHint">Качете логото, за да подготвим визуализация. Максимален размер 10 MB.</span>
+                <button type="button" class="logo-remove" id="fLogoRemove" hidden>Премахни</button>
+              </div>
               <span class="form-error" id="err-fLogo"></span>
             </div>
           </div>
@@ -669,6 +672,8 @@
 
           <p class="form-consent">Изпращайки тази форма, се съгласявате да бъдете контактувани от PrintGround във връзка с Вашата заявка.</p>
 
+          <input type="text" name="website" id="fHoneypot" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+
           <button class="btn btn-primary btn-lg btn-block" type="submit" data-track="cta_form_submit">Получавам персонална оферта</button>
 
           <p class="form-microcopy">Не сте сигурни кой продукт е подходящ? Изпратете ни количеството, срока и логото си. Ще Ви предложим най-подходящия вариант.</p>
@@ -676,8 +681,9 @@
 
         <div class="form-success" id="formSuccess" hidden>
           <div class="success-mark" aria-hidden="true">✓</div>
-          <h3>Благодарим! Вашата заявка е изпратена.</h3>
-          <p>Ще се свържем с Вас, за да потвърдим продукта, количеството и срока и ще подготвим конкретна оферта и визуализация.</p>
+          <h3>Запитването е изпратено успешно.</h3>
+          <p>Ще се свържем с Вас, за да потвърдим продукта, количеството и срока и да подготвим конкретна оферта.</p>
+          <button type="button" class="btn btn-outline" id="formSuccessReset">Изпрати ново запитване</button>
         </div>
       </div>
     </section>
