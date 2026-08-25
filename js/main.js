@@ -354,7 +354,7 @@
     var p = PRODUCTS[state.product];
     var price = p.prices[state.qty];
     var pricePart = price !== undefined ? ' · ' + fmt(price) + ' ' + p.unit + '/бр.' : ' · индивидуална оферта';
-    stickyInfo.innerHTML = p.name + ' · ' + state.qty + ' бр.' + pricePart;
+    stickyInfo.innerHTML = p.name + ' · ' + state.qty + ' бр.' + pricePart + ' — Калкулирай сега';
   }
 
   function onScroll() {
