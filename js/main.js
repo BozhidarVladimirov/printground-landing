@@ -128,11 +128,13 @@
 
   function renderQuantity() {
     var p = PRODUCTS[state.product];
+    var hasPrices = Object.keys(p.prices).length > 0;
     calcQtyEl.innerHTML = QUANTITIES.map(function (q) {
       var has = p.prices[q] !== undefined;
       var sel = state.qty === q ? ' is-selected' : '';
       var soft = has ? '' : ' is-soft';
-      return '<button type="button" class="qty-btn' + sel + soft + '" data-qty="' + q + '" aria-pressed="' + (state.qty === q) + '">' + q + '</button>';
+      var dis = has ? '' : (hasPrices ? ' disabled' : '');
+      return '<button type="button" class="qty-btn' + sel + soft + '" data-qty="' + q + '" aria-pressed="' + (state.qty === q) + '"' + dis + '>' + q + '</button>';
     }).join('');
     calcQtyEl.querySelectorAll('[data-qty]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -149,6 +151,7 @@
 
   function renderLadder() {
     var p = PRODUCTS[state.product];
+    var hasPrices = Object.keys(p.prices).length > 0;
     var values = QUANTITIES.map(function (q) { return p.prices[q]; }).filter(function (v) { return v !== undefined; });
     var max = values.length ? Math.max.apply(null, values) : 1;
     var maxH = 128;
@@ -163,7 +166,7 @@
         save = ' <span class="ladder-save">−' + fmt(p.prices[50] - price) + ' ' + p.unit + '/бр.</span>';
       }
       var label = has ? 'Количество ' + q + ' броя, цена ' + fmt(price) + ' ' + p.unit : 'Количество ' + q + ' броя, индивидуална оферта';
-      return '<button type="button" class="ladder-col' + sel + off + '" data-qty="' + q + '" aria-label="' + label + '">' +
+      return '<button type="button" class="ladder-col' + sel + off + '" data-qty="' + q + '" aria-label="' + label + '"' + (has ? '' : (hasPrices ? ' disabled' : '')) + '>' +
         '<span class="ladder-price">' + (has ? fmt(price) + ' ' + p.unit : 'оферта') + '</span>' +
         '<span class="ladder-fill" style="height:' + h + 'px"></span>' +
         '<span class="ladder-qty">' + q + '</span>' + save +
@@ -280,7 +283,7 @@
     btn.addEventListener('click', function () {
       var card = btn.closest('.product-card');
       var sel = card ? card.querySelector('.qty-select') : null;
-      var qty = sel ? parseInt(sel.value, 10) : 50;
+      var qty = sel ? parseInt(sel.value, 10) : firstAvailableQty(btn.dataset.offer);
       prefillAndGo(btn.dataset.offer, qty);
       __track('cta_product_offer', { product: btn.dataset.offer, qty: qty });
     });
@@ -402,10 +405,23 @@
     }
   }
 
+  function syncQtyMin() {
+    var productSelect = document.getElementById('fProduct');
+    var qtySelect = document.getElementById('fQuantity');
+    if (!productSelect || !qtySelect) return;
+    var isBag = productSelect.value === 'bag';
+    var opt50 = qtySelect.querySelector('option[value="50"]');
+    if (opt50) opt50.disabled = isBag;
+    if (isBag && qtySelect.value === '50') qtySelect.value = '100';
+  }
+
+  var productSelectEl = document.getElementById('fProduct');
+  if (productSelectEl) productSelectEl.addEventListener('change', syncQtyMin);
   if (productOtherInput) {
-    document.getElementById('fProduct').addEventListener('change', syncProductOther);
+    productSelectEl.addEventListener('change', syncProductOther);
   }
   syncProductOther();
+  syncQtyMin();
 
   function validate() {
     var firstFocus = null;
@@ -441,8 +457,9 @@
 
     var quantity = document.getElementById('fQuantity').value;
     var qtyNum = parseInt(String(quantity).replace('+', ''), 10) || 0;
+    var minQty = product === 'bag' ? 100 : 50;
     if (!quantity) { setError('err-fQuantity', 'Моля, изберете количество.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
-    else if (qtyNum < 50) { setError('err-fQuantity', 'Минималното количество е 50 броя.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
+    else if (qtyNum < minQty) { setError('err-fQuantity', 'Минималното количество е ' + minQty + ' броя.'); firstFocus = firstFocus || 'fQuantity'; invalidFields.push('quantity'); }
     else { setError('err-fQuantity', ''); }
 
     var purpose = document.querySelector('input[name="purpose"]:checked');
