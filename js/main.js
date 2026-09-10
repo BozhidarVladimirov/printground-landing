@@ -471,11 +471,7 @@
     else { setError('err-fDeadline', ''); }
 
     var file = document.getElementById('fLogo').files[0];
-    if (!file) {
-      setError('err-fLogo', 'Моля, качете лого.');
-      firstFocus = firstFocus || 'fLogo';
-      invalidFields.push('logo');
-    } else {
+    if (file) {
       var ext = file.name.split('.').pop().toLowerCase();
       if (allowedExt.indexOf(ext) === -1 || file.size > 10 * 1024 * 1024) {
         setError('err-fLogo', 'Невалиден формат или размер. Приемаме PNG, JPG, PDF, SVG, AI до 10 MB.');
@@ -484,6 +480,8 @@
       } else {
         setError('err-fLogo', '');
       }
+    } else {
+      setError('err-fLogo', '');
     }
 
     var budgetChecked = document.querySelector('input[name="budget"]:checked');
