@@ -26,7 +26,7 @@ var PRODUCT_LABELS = {
   hemingway: 'HEMINGWAY A5 тефтер',
   notebookPen: 'Тефтер + химикал',
   cup: 'Брандирана чаша',
-  bag: 'Брандирана торба',
+  bag: 'Брандирана чанта',
   backpack: 'Брандирана раница',
   giftSet: 'Корпоративен подаръчен комплект',
   other: 'Друго'
