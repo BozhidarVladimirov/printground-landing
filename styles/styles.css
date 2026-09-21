@@ -152,6 +152,11 @@ main section[id] { scroll-margin-top: calc(var(--header-h) + 14px); }
 
 /* ---------- Header ---------- */
 
+.christmas-banner { background: #f4f5f7; }
+.christmas-banner__img { display: block; width: 100%; height: auto; }
+
+/* ---------- Header ---------- */
+
 .site-header {
   position: sticky;
   top: 0;
